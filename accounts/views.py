@@ -15,6 +15,8 @@ from accounts.models import User
 
 from core.utils.exceptions import ValidationError
 
+import uuid   # para gerar id's dinâmicos / aleatórios
+
 # fazendo login
 
 class SignInView(APIView, Authentication):
@@ -63,3 +65,59 @@ class SignUpView(APIView, Authentication):
       'user': user,
       'access_token': str(access_token)
     })
+  
+#######################################################################################
+  
+# obter o usuário
+
+class userView(APIView):
+  def get(self, request):
+
+    # obter o usuário / update last_access - salvar o ultimo acesso
+    User.objects.filter(id=request.user.id).update(last_access=now)   # p usar o recurso de online (mostrar q esta online)
+
+    user = UserSerializer(request.user).data
+
+    return Response({
+      'user': user
+    })
+  
+
+  # upload - atualizando o usuário
+
+  def put(sel, request):
+    name = request.data.get('name')
+    email = request.data.get('email')
+    password = request.data.get('password')
+    avatar = request.FILES.get('avatar')    # qndo for para pegar arquivos
+
+    # Initialize storage
+    storage = FileSystemStorage(
+      settings.MEDIA_ROOT / 'avatars',
+      settings.MEDIA_URL + 'avatars'
+    )
+
+    if avatar:
+      content_type = avatar.content_type
+      extension = avatar.name.split('.')[-1]   # para gravar no BD qual é a extensão do arquivo
+
+      # Validade avatar / para ver se esta no padrão correto - .png ou .jpeg
+      if not content_type == 'image/png' and not content_type == 'image/jpeg':
+        raise ValidationError('Somente arquivos do tipo .PNG ou .JPEG são suportados')
+
+      # apos validação -> Save new avatar
+      file = storage.save(f'{uuid.uuid4()}.{extension}', avatar)
+      avatar = storage.url(file)
+
+    # salvando os dados atualizados
+
+    serializer = UserSerializer(request.user, data={  # enviando
+      'name': name,
+      'email': email,
+      'avatar': avatar or request.user.avatar
+    })
+
+    if not serializer.is_valid(): # se nao for valido preciso levantar um erro
+      # Deletar o arquivo 
+      if avatar:
+        storage.delete(avatar.split('/')[-1])
