@@ -42,46 +42,50 @@ class SignInView(APIView, Authentication):
 
 # criando conta e fazendo login  
 
+
+  
 class SignUpView(APIView, Authentication):
   permission_classes = [AllowAny]
 
   def post(self, request):
-    name = request.data.get('name')
+    name = request.data.get('name', '')
     email = request.data.get('email', '')
     password = request.data.get('password', '')
 
     if not name or not email or not password:
-      raise AuthenticationFailed
+        raise AuthenticationFailed
 
     signup = self.signup(name, email, password)
 
     if not signup:
-      raise AuthenticationFailed
-    
+        raise AuthenticationFailed
+
     user = UserSerializer(signup).data
     access_token = RefreshToken.for_user(signup).access_token
 
     return Response({
-      'user': user,
-      'access_token': str(access_token)
+        "user": user,
+        "access_token": str(access_token)
     })
   
+
 #######################################################################################
   
 # obter o usuário
 
-class userView(APIView):
+class UserView(APIView):
+  
   def get(self, request):
 
     # obter o usuário / update last_access - salvar o ultimo acesso
-    User.objects.filter(id=request.user.id).update(last_access=now)   # p usar o recurso de online (mostrar q esta online)
+    User.objects.filter(id=request.user.id).update(last_access=now())   # p usar o recurso de online (mostrar q esta online)
 
     user = UserSerializer(request.user).data
 
     return Response({
       'user': user
-    })
-  
+    }) 
+
 
   # upload - atualizando o usuário
 
@@ -121,3 +125,23 @@ class userView(APIView):
       # Deletar o arquivo 
       if avatar:
         storage.delete(avatar.split('/')[-1])
+
+      first_error = list(serializer.errors.values())[0][0]
+
+      raise ValidationError(first_error)
+    
+
+    # Deletar o avatar antigo
+
+    if avatar and request.user.avatar != '/media/avatars/default-avatar.png':
+      storage.delete(request.user.avatar.split('/')[-1])
+
+    # Atualizar o password
+    if password:
+      request.user.set_password(password)
+
+    serializer.save()
+
+    return Response({
+      'user': serializer.data
+    })
