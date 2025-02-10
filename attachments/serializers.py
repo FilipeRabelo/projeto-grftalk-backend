@@ -19,7 +19,7 @@ class FileAttachmentSerializer(serializers.ModelSerializer):
       return data
     
 
-class audioAttachmentSerializer(serializers.ModelSerializer):
+class AudioAttachmentSerializer(serializers.ModelSerializer):
   class Meta:
     model = AudioAttachment
     fields = '__all__'
